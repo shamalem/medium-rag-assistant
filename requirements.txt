@@ -1,7 +1,9 @@
 pandas
 fastapi
 uvicorn
-pinecone
-openai
 python-dotenv
 tiktoken
+openai
+pinecone
+flask
+requests
