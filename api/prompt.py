@@ -7,7 +7,21 @@ from pinecone import Pinecone
 
 
 TOP_K = 7
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.llmod.ai/v1")
+CHAT_MODEL = os.environ.get("OPENAI_CHAT_MODEL", "4UHRUIN-gpt-5-mini")
+EMBED_MODEL = os.environ.get("OPENAI_EMBED_MODEL", "4UHRUIN-text-embedding-3-small")
 
+PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
+PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "medium-rag")
+
+openai_client = OpenAI(
+    api_key=OPENAI_API_KEY,
+    base_url=OPENAI_BASE_URL
+)
+
+pinecone_client = Pinecone(api_key=PINECONE_API_KEY)
+pinecone_index = pinecone_client.Index(PINECONE_INDEX_NAME)
 SYSTEM_PROMPT = """
 You are a Medium-article assistant that answers questions strictly and only
 based on the Medium articles dataset context provided to you (metadata
@@ -21,18 +35,28 @@ paraphrasing the relevant article passage or metadata when helpful.
 
 
 class handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
+   def do_POST(self):
 
-        response = {
-            "response": "prompt endpoint is working",
-            "context": [],
-            "Augmented_prompt": {
-                "System": SYSTEM_PROMPT,
-                "User": ""
-            }
+    content_length = int(self.headers["Content-Length"])
+
+    body = self.rfile.read(content_length)
+
+    data = json.loads(body)
+
+    question = data.get("question", "")
+
+    self.send_response(200)
+    self.send_header("Content-Type", "application/json")
+    self.end_headers()
+
+    response = {
+        "response": "prompt endpoint is working",
+        "context": [],
+        "Augmented_prompt": {
+            "System": SYSTEM_PROMPT,
+            "User": question
         }
+    }
 
-        self.wfile.write(json.dumps(response).encode("utf-8"))
+    self.wfile.write(json.dumps(response).encode("utf-8"))
+      
