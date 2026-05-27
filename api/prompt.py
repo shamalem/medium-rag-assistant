@@ -69,12 +69,43 @@ class handler(BaseHTTPRequestHandler):
                 "score": match["score"]
             })
 
+        context_text = ""
+
+        for i, item in enumerate(context, start=1):
+            context_text += f"""
+Context chunk {i}
+Article ID: {item["article_id"]}
+Title: {item["title"]}
+Passage:
+{item["chunk"]}
+"""
+
+        user_prompt = f"""
+Use ONLY the context below to answer the question.
+
+Context:
+{context_text}
+
+Question:
+{question}
+"""
+
+        chat_response = openai_client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+
+        final_answer = chat_response.choices[0].message.content
+
         response = {
-            "response": "",
+            "response": final_answer,
             "context": context,
             "Augmented_prompt": {
                 "System": SYSTEM_PROMPT,
-                "User": question
+                "User": user_prompt
             }
         }
 
