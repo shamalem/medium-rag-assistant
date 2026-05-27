@@ -15,7 +15,9 @@ HTML = """
 
 {% if answer %}
 <h3>Answer:</h3>
-<pre>{{ answer }}</pre>
+<pre style="white-space: pre-wrap; word-wrap: break-word;">
+{{ answer | tojson(indent=2) }}
+</pre>
 {% endif %}
 """
 
