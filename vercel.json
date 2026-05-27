@@ -5,5 +5,15 @@
       "src": "api/*.py",
       "use": "@vercel/python"
     }
+  ],
+  "routes": [
+    {
+      "src": "/api/stats",
+      "dest": "/api/stats.py"
+    },
+    {
+      "src": "/api/prompt",
+      "dest": "/api/prompt.py"
+    }
   ]
 }
