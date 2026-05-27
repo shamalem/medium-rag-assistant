@@ -7,8 +7,9 @@ from pinecone import Pinecone
 
 
 TOP_K = 7
+
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.llmod.ai/v1")
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.llmod.ai")
 CHAT_MODEL = os.environ.get("OPENAI_CHAT_MODEL", "4UHRUIN-gpt-5-mini")
 EMBED_MODEL = os.environ.get("OPENAI_EMBED_MODEL", "4UHRUIN-text-embedding-3-small")
 
@@ -22,6 +23,7 @@ openai_client = OpenAI(
 
 pinecone_client = Pinecone(api_key=PINECONE_API_KEY)
 pinecone_index = pinecone_client.Index(PINECONE_INDEX_NAME)
+
 SYSTEM_PROMPT = """
 You are a Medium-article assistant that answers questions strictly and only
 based on the Medium articles dataset context provided to you (metadata
@@ -35,28 +37,48 @@ paraphrasing the relevant article passage or metadata when helpful.
 
 
 class handler(BaseHTTPRequestHandler):
-   def do_POST(self):
+    def do_POST(self):
+        content_length = int(self.headers["Content-Length"])
+        body = self.rfile.read(content_length)
+        data = json.loads(body)
 
-    content_length = int(self.headers["Content-Length"])
+        question = data.get("question", "")
 
-    body = self.rfile.read(content_length)
+        embedding_response = openai_client.embeddings.create(
+            model=EMBED_MODEL,
+            input=question
+        )
 
-    data = json.loads(body)
+        question_vector = embedding_response.data[0].embedding
 
-    question = data.get("question", "")
+        results = pinecone_index.query(
+            vector=question_vector,
+            top_k=TOP_K,
+            include_metadata=True
+        )
 
-    self.send_response(200)
-    self.send_header("Content-Type", "application/json")
-    self.end_headers()
+        context = []
 
-    response = {
-        "response": "prompt endpoint is working",
-        "context": [],
-        "Augmented_prompt": {
-            "System": SYSTEM_PROMPT,
-            "User": question
+        for match in results["matches"]:
+            metadata = match["metadata"]
+
+            context.append({
+                "article_id": metadata.get("article_id", ""),
+                "title": metadata.get("title", ""),
+                "chunk": metadata.get("chunk", ""),
+                "score": match["score"]
+            })
+
+        response = {
+            "response": "",
+            "context": context,
+            "Augmented_prompt": {
+                "System": SYSTEM_PROMPT,
+                "User": question
+            }
         }
-    }
 
-    self.wfile.write(json.dumps(response).encode("utf-8"))
-      
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode("utf-8"))
