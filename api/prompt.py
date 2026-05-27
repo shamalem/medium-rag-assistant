@@ -6,7 +6,7 @@ from openai import OpenAI
 from pinecone import Pinecone
 
 
-TOP_K = 7
+TOP_K = 10
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.llmod.ai")
@@ -23,6 +23,7 @@ openai_client = OpenAI(
 
 pinecone_client = Pinecone(api_key=PINECONE_API_KEY)
 pinecone_index = pinecone_client.Index(PINECONE_INDEX_NAME)
+
 
 SYSTEM_PROMPT = """
 You are a Medium-article assistant that answers questions strictly and only
@@ -51,6 +52,8 @@ def detect_question_type(question):
         or "summary" in q
         or "central argument" in q
         or "main idea" in q
+        or "summarise its central argument" in q
+        or "summarize its central argument" in q
     ):
         return "summary"
 
@@ -67,7 +70,7 @@ Do not list multiple articles.
 
     "multi_result": """
 Question type: Multi-result topic listing.
-Return up to 3 DISTINCT article titles that match the topic.
+Return exactly 3 DISTINCT article titles if 3 relevant articles are available.
 Do not repeat the same article even if multiple chunks appear.
 Return only the titles unless the user asks for more.
 """,
@@ -87,7 +90,53 @@ Explain why it fits the user's need using evidence from the retrieved passage or
 }
 
 
+def build_context(results, question_type):
+    context = []
+    seen_articles = set()
+    article_chunk_counts = {}
+
+    for match in results["matches"]:
+        metadata = match["metadata"]
+
+        article_id = metadata.get("article_id", "")
+        title = metadata.get("title", "")
+        key = article_id if article_id else title
+
+        if question_type in ["precise_fact", "multi_result"]:
+            if key in seen_articles:
+                continue
+            seen_articles.add(key)
+
+        elif question_type == "recommendation":
+            article_chunk_counts[key] = article_chunk_counts.get(key, 0) + 1
+            if article_chunk_counts[key] > 2:
+                continue
+
+        context.append({
+            "article_id": article_id,
+            "title": title,
+            "authors": metadata.get("authors", ""),
+            "url": metadata.get("url", ""),
+            "tags": metadata.get("tags", ""),
+            "timestamp": metadata.get("timestamp", ""),
+            "chunk": metadata.get("chunk", ""),
+            "score": match["score"]
+        })
+
+        if question_type in ["precise_fact", "multi_result"] and len(context) >= 3:
+            break
+
+        if question_type == "recommendation" and len(context) >= 5:
+            break
+
+        if question_type == "summary" and len(context) >= 7:
+            break
+
+    return context
+
+
 class handler(BaseHTTPRequestHandler):
+
     def do_POST(self):
         try:
             content_length = int(self.headers["Content-Length"])
@@ -120,27 +169,7 @@ class handler(BaseHTTPRequestHandler):
                 include_metadata=True
             )
 
-            context = []
-            seen_articles = set()
-
-            for match in results["matches"]:
-                metadata = match["metadata"]
-
-                article_id = metadata.get("article_id", "")
-                title = metadata.get("title", "")
-
-                unique_key = article_id if article_id else title
-
-                context.append({
-                    "article_id": article_id,
-                    "title": title,
-                    "authors": metadata.get("authors", ""),
-                    "url": metadata.get("url", ""),
-                    "tags": metadata.get("tags", ""),
-                    "timestamp": metadata.get("timestamp", ""),
-                    "chunk": metadata.get("chunk", ""),
-                    "score": match["score"]
-                })
+            context = build_context(results, question_type)
 
             context_text = ""
 
@@ -196,7 +225,9 @@ Question:
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps(response, ensure_ascii=False).encode("utf-8"))
+            self.wfile.write(
+                json.dumps(response, ensure_ascii=False).encode("utf-8")
+            )
 
         except Exception as e:
             self.send_response(500)
