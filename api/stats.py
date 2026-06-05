@@ -3,7 +3,7 @@ import json
 
 CHUNK_SIZE =800
 OVERLAP_RATIO = 0.2
-TOP_K = 7
+TOP_K = 9
 
 
 class handler(BaseHTTPRequestHandler):
