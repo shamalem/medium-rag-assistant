@@ -220,7 +220,8 @@ Question:
                 ]
             )
 
-            final_answer = chat_response.choices[0].message.content
+            final_answer = chat_response.choices[0].message.content.strip()
+            final_answer = final_answer.replace("\n\n", "\n")
 
             response = {
                 "response": final_answer,
