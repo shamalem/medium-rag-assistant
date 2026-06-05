@@ -37,29 +37,49 @@ paraphrasing the relevant article passage or metadata when helpful.
 """
 
 
-def detect_question_type(question):
-    q = question.lower()
+def detect_question_type_llm(question):
+    classification_prompt = f"""
+Classify the user's question into exactly ONE of these labels:
 
-    if "list" in q or "exactly 3" in q or "3 articles" in q:
-        return "multi_result"
+- precise_fact
+- multi_result
+- summary
+- recommendation
 
-    if "recommend" in q or "which article" in q or "why" in q:
-        return "recommendation"
+Return only the label, nothing else.
 
-    if (
-        "summarise" in q
-        or "summarize" in q
-        or "summary" in q
-        or "central argument" in q
-        or "main idea" in q
-        or "summarise its central argument" in q
-        or "summarize its central argument" in q
-    ):
-        return "summary"
+Question:
+{question}
+"""
 
-    return "precise_fact"
+    response = openai_client.chat.completions.create(
+        model=CHAT_MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": "You classify RAG questions. Return only one valid label."
+            },
+            {
+                "role": "user",
+                "content": classification_prompt
+            }
+        ],
+        temperature=0
+    )
 
+    label = response.choices[0].message.content.strip().lower()
 
+    valid_labels = {
+        "precise_fact",
+        "multi_result",
+        "summary",
+        "recommendation"
+    }
+
+    if label not in valid_labels:
+        return "precise_fact"
+
+    return label
 TYPE_INSTRUCTIONS = {
     "precise_fact": """
 Question type: Precise fact retrieval.
@@ -154,7 +174,7 @@ class handler(BaseHTTPRequestHandler):
                 }).encode("utf-8"))
                 return
 
-            question_type = detect_question_type(question)
+            question_type = detect_question_type_llm(question)
 
             embedding_response = openai_client.embeddings.create(
                 model=EMBED_MODEL,
