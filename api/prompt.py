@@ -113,7 +113,6 @@ Explain why it fits the user's need using evidence from the retrieved passage or
 def build_context(results, question_type):
     context = []
     seen_articles = set()
-    article_chunk_counts = {}
 
     for match in results["matches"]:
         metadata = match["metadata"]
@@ -122,15 +121,10 @@ def build_context(results, question_type):
         title = metadata.get("title", "")
         key = article_id if article_id else title
 
-        if question_type in ["precise_fact", "multi_result"]:
+        if question_type == "multi_result":
             if key in seen_articles:
                 continue
             seen_articles.add(key)
-
-        elif question_type == "recommendation":
-            article_chunk_counts[key] = article_chunk_counts.get(key, 0) + 1
-            if article_chunk_counts[key] > 2:
-                continue
 
         context.append({
             "article_id": article_id,
@@ -142,15 +136,6 @@ def build_context(results, question_type):
             "chunk": metadata.get("chunk", ""),
             "score": match["score"]
         })
-
-        if question_type in ["precise_fact", "multi_result"] and len(context) >= 3:
-            break
-
-        if question_type == "recommendation" and len(context) >= 5:
-            break
-
-        if question_type == "summary" and len(context) >= 7:
-            break
 
     return context
 
