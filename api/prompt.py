@@ -6,7 +6,7 @@ from openai import OpenAI
 from pinecone import Pinecone
 
 
-TOP_K = 9
+TOP_K = 8
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.llmod.ai")
@@ -88,11 +88,14 @@ Return the requested fields, such as title, author, URL, or date if available.
 Do not list multiple articles.
 """,
 
-    "multi_result": """
+   "multi_result": """
 Question type: Multi-result topic listing.
-Return exactly 3 DISTINCT article titles if 3 relevant articles are available.
+Return up to 3 DISTINCT article titles that match the requested topic.
 Do not repeat the same article even if multiple chunks appear.
 Return only the titles unless the user asks for more.
+
+If the user asks for more than 3 articles, explain that this system supports up to 8 results for multi-result listing.
+If the user asks for an exact number and fewer relevant distinct articles are available in the retrieved context, respond that the requested number cannot be determined from the provided Medium articles data.
 """,
 
    "summary": """
