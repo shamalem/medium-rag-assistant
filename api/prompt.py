@@ -63,8 +63,7 @@ Question:
                 "role": "user",
                 "content": classification_prompt
             }
-        ],
-        temperature=0
+        ]
     )
 
     label = response.choices[0].message.content.strip().lower()
