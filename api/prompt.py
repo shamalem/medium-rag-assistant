@@ -95,11 +95,15 @@ Do not repeat the same article even if multiple chunks appear.
 Return only the titles unless the user asks for more.
 """,
 
-    "summary": """
+   "summary": """
 Question type: Key idea summary extraction.
 Find the most relevant article and summarize its central idea concisely.
 Mention the article title.
 Base the summary only on the retrieved passages.
+
+If the question contains an example using phrases like "such as", "for example", or "e.g.",
+treat the example as illustrative, not as a mandatory exact-match requirement.
+Focus on the main idea of the question and summarize the closest relevant article from the retrieved context.
 """,
 
     "recommendation": """
