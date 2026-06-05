@@ -54,6 +54,7 @@ Question:
 
     response = openai_client.chat.completions.create(
         model=CHAT_MODEL,
+        temperature=1,
         messages=[
             {
                 "role": "system",
