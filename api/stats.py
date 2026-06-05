@@ -2,7 +2,7 @@ from http.server import BaseHTTPRequestHandler
 import json
 
 CHUNK_SIZE =800
-OVERLAP_RATIO = 0.2
+OVERLAP_RATIO = 0.15
 TOP_K = 8
 
 
