@@ -133,7 +133,7 @@ def build_context(results, question_type):
                 continue
             seen_articles.add(key)
 
-       context.append({
+        context.append({
     "article_id": article_id,
     "title": title,
     "chunk": metadata.get("chunk", ""),
@@ -183,17 +183,13 @@ class handler(BaseHTTPRequestHandler):
 
             for i, item in enumerate(context, start=1):
                 context_text += f"""
-Context chunk {i}
-Article ID: {item["article_id"]}
-Title: {item["title"]}
-Authors: {item["authors"]}
-URL: {item["url"]}
-Tags: {item["tags"]}
-Timestamp: {item["timestamp"]}
-Score: {item["score"]}
-Passage:
-{item["chunk"]}
-"""
+                Context chunk {i}
+               Article ID: {item["article_id"]}
+               Title: {item["title"]}
+                Score: {item["score"]}
+               Passage:
+              {item["chunk"]}
+              """
 
             user_prompt = f"""
 Use ONLY the context below to answer the question.
