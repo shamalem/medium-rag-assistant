@@ -92,10 +92,10 @@ Do not list multiple articles.
 Question type: Multi-result topic listing.
 Return up to 3 DISTINCT article titles that match the requested topic.
 Do not repeat the same article even if multiple chunks appear.
-Return only the titles unless the user asks for more.
+Return only the titles unless the user asks for more details.
 
-If the user asks for more than 3 articles, explain that this system supports up to 8 results for multi-result listing.
-If the user asks for an exact number and fewer relevant distinct articles are available in the retrieved context, respond that the requested number cannot be determined from the provided Medium articles data.
+If fewer than 3 relevant distinct articles are available in the retrieved context,
+return only the available titles.
 """,
 
    "summary": """
