@@ -133,16 +133,12 @@ def build_context(results, question_type):
                 continue
             seen_articles.add(key)
 
-        context.append({
-            "article_id": article_id,
-            "title": title,
-            "authors": metadata.get("authors", ""),
-            "url": metadata.get("url", ""),
-            "tags": metadata.get("tags", ""),
-            "timestamp": metadata.get("timestamp", ""),
-            "chunk": metadata.get("chunk", ""),
-            "score": match["score"]
-        })
+       context.append({
+    "article_id": article_id,
+    "title": title,
+    "chunk": metadata.get("chunk", ""),
+    "score": match["score"]
+})
 
     return context
 
