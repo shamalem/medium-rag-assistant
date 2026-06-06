@@ -134,11 +134,15 @@ def build_context(results, question_type):
             seen_articles.add(key)
 
         context.append({
-    "article_id": article_id,
-    "title": title,
-    "chunk": metadata.get("chunk", ""),
-    "score": match["score"]
-})
+            "article_id": article_id,
+            "title": title,
+            "authors": metadata.get("authors", ""),
+            "url": metadata.get("url", ""),
+            "tags": metadata.get("tags", ""),
+            "timestamp": metadata.get("timestamp", ""),
+            "chunk": metadata.get("chunk", ""),
+            "score": match["score"]
+        })
 
     return context
 
@@ -183,13 +187,17 @@ class handler(BaseHTTPRequestHandler):
 
             for i, item in enumerate(context, start=1):
                 context_text += f"""
-                Context chunk {i}
-               Article ID: {item["article_id"]}
-               Title: {item["title"]}
-                Score: {item["score"]}
-               Passage:
-              {item["chunk"]}
-              """
+Context chunk {i}
+Article ID: {item["article_id"]}
+Title: {item["title"]}
+Authors: {item["authors"]}
+URL: {item["url"]}
+Tags: {item["tags"]}
+Timestamp: {item["timestamp"]}
+Score: {item["score"]}
+Passage:
+{item["chunk"]}
+"""
 
             user_prompt = f"""
 Use ONLY the context below to answer the question.
@@ -217,10 +225,19 @@ Question:
 
             final_answer = chat_response.choices[0].message.content.strip()
             final_answer = final_answer.replace("\n\n", "\n")
+            response_context = []
+
+            for item in context:
+                response_context.append({
+               "article_id": item["article_id"],
+                "title": item["title"],
+                "chunk": item["chunk"],
+                "score": item["score"]
+                })
 
             response = {
                 "response": final_answer,
-                "context": context,
+                "context":  response_context,
                 "Augmented_prompt": {
                     "System": SYSTEM_PROMPT,
                     "User": user_prompt
