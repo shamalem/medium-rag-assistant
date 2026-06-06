@@ -5,57 +5,103 @@ import json
 app = Flask(__name__)
 
 PROMPT_URL = "https://medium-rag-assistant-kappa.vercel.app/api/prompt"
-
 HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <title>Medium RAG Assistant</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #ffffff;
+            color: #111111;
+            margin: 0;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        p {
+            color: #555;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 14px;
+            font-size: 15px;
+            border: 1px solid #111;
+            border-radius: 8px;
+            resize: vertical;
+        }
+
+        button {
+            margin-top: 14px;
+            padding: 12px 24px;
+            background: #111;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #333;
+        }
+
+        .card {
+            margin-top: 30px;
+            border: 1px solid #111;
+            border-radius: 10px;
+            padding: 20px;
+            background: #fafafa;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .label {
+            font-weight: bold;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+    </style>
 </head>
 <body>
 
-<h2>Medium RAG Assistant</h2>
+<div class="container">
 
-<form method="POST">
-    <textarea name="question"
-              rows="4"
-              cols="70"
-              placeholder="Ask a question..."></textarea>
-    <br><br>
-    <button type="submit">Ask</button>
-</form>
+    <h1>Medium RAG Assistant</h1>
+    <p>Ask a question and view the full JSON response.</p>
 
-{% if answer %}
+    <form method="POST">
+        <textarea name="question" placeholder="Ask a question..."></textarea>
+        <br>
+        <button type="submit">Ask</button>
+    </form>
 
-<h3>Answer</h3>
-<div style="
-    white-space: pre-wrap;
-    border: 1px solid #ccc;
-    padding: 12px;
-    margin-bottom: 20px;
-">
-{{ answer }}
+    {% if output_json %}
+    <div class="card">
+        <div class="label">Output format (JSON)</div>
+        <pre>{{ output_json }}</pre>
+    </div>
+    {% endif %}
+
 </div>
-
-<h3>Retrieved Context</h3>
-<pre style="
-    white-space: pre-wrap;
-    border: 1px solid #ccc;
-    padding: 12px;
-">
-{{ context }}
-</pre>
-
-<h3>Augmented Prompt</h3>
-<pre style="
-    white-space: pre-wrap;
-    border: 1px solid #ccc;
-    padding: 12px;
-">
-{{ augmented_prompt }}
-</pre>
-
-{% endif %}
 
 </body>
 </html>
@@ -64,17 +110,12 @@ HTML = """
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-
-    answer = None
-    context = None
-    augmented_prompt = None
+    output_json = None
 
     if request.method == "POST":
-
         question = request.form.get("question")
 
         try:
-
             res = requests.post(
                 PROMPT_URL,
                 json={"question": question}
@@ -82,29 +123,22 @@ def home():
 
             data = res.json()
 
-            answer = data.get("response", "")
-
-            context = json.dumps(
-                data.get("context", []),
-                indent=2,
-                ensure_ascii=False
-            )
-
-            augmented_prompt = json.dumps(
-                data.get("Augmented_prompt", {}),
+            output_json = json.dumps(
+                data,
                 indent=2,
                 ensure_ascii=False
             )
 
         except Exception as e:
-
-            answer = f"Error: {str(e)}"
+            output_json = json.dumps(
+                {"error": str(e)},
+                indent=2,
+                ensure_ascii=False
+            )
 
     return render_template_string(
         HTML,
-        answer=answer,
-        context=context,
-        augmented_prompt=augmented_prompt
+        output_json=output_json
     )
 
 
