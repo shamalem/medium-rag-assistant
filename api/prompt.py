@@ -105,7 +105,7 @@ Passage:
 {item["chunk"]}
 """
 
-           user_prompt = f"""
+            user_prompt = f"""
 Use ONLY the retrieved context below to answer the user's question.
 
 Determine internally which question type best matches the user's request.
