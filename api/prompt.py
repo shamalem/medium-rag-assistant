@@ -27,115 +27,23 @@ pinecone_index = pinecone_client.Index(PINECONE_INDEX_NAME)
 
 SYSTEM_PROMPT = """
 You are a Medium-article assistant that answers questions strictly and only
-based on the Medium articles dataset context provided to you (metadata
-and article passages). You must not use any external knowledge, the open
-internet, or information that is not explicitly contained in the retrieved
-context. If the answer cannot be determined from the provided context,
-respond: “I don’t know based on the provided Medium articles data.”
-Always explain your answer using the given context, quoting or
-paraphrasing the relevant article passage or metadata when helpful.
+based on the Medium articles dataset context provided to you. You must not
+use external knowledge, the open internet, or information that is not
+explicitly contained in the retrieved context. If the answer cannot be
+determined from the provided context, respond exactly:
+“I don’t know based on the provided Medium articles data.”
 """
 
 
-def detect_question_type_llm(question):
-    classification_prompt = f"""
-Classify the user's question into exactly ONE of these labels:
-
-- precise_fact
-- multi_result
-- summary
-- recommendation
-
-Return only the label, nothing else.
-
-Question:
-{question}
-"""
-
-    response = openai_client.chat.completions.create(
-        model=CHAT_MODEL,
-        temperature=1,
-        messages=[
-            {
-                "role": "system",
-                "content": "You classify RAG questions. Return only one valid label."
-            },
-            {
-                "role": "user",
-                "content": classification_prompt
-            }
-        ]
-    )
-
-    label = response.choices[0].message.content.strip().lower()
-
-    valid_labels = {
-        "precise_fact",
-        "multi_result",
-        "summary",
-        "recommendation"
-    }
-
-    if label not in valid_labels:
-        return "precise_fact"
-
-    return label
-TYPE_INSTRUCTIONS = {
-    "precise_fact": """
-Question type: Precise fact retrieval.
-Find ONE concrete article that best matches the question.
-Return the requested fields, such as title, author, URL, or date if available.
-Do not list multiple articles.
-""",
-
-   "multi_result": """
-Question type: Multi-result topic listing.
-Return up to 3 DISTINCT article titles that match the requested topic.
-Do not repeat the same article even if multiple chunks appear.
-Return only the titles unless the user asks for more details.
-
-If fewer than 3 relevant distinct articles are available in the retrieved context,
-return only the available titles.
-""",
-
-   "summary": """
-Question type: Key idea summary extraction.
-Find the most relevant article and summarize its central idea concisely.
-Mention the article title.
-Base the summary only on the retrieved passages.
-
-If the question contains an example using phrases like "such as", "for example", or "e.g.",
-treat the example as illustrative, not as a mandatory exact-match requirement.
-Focus on the main idea of the question and summarize the closest relevant article from the retrieved context.
-""",
-
-    "recommendation": """
-Question type: Recommendation with evidence-based justification.
-Recommend ONE article only.
-Explain why it fits the user's need using evidence from the retrieved passage or metadata.
-"""
-}
-
-
-def build_context(results, question_type):
+def build_context(results):
     context = []
-    seen_articles = set()
 
     for match in results["matches"]:
         metadata = match["metadata"]
 
-        article_id = metadata.get("article_id", "")
-        title = metadata.get("title", "")
-        key = article_id if article_id else title
-
-        if question_type == "multi_result":
-            if key in seen_articles:
-                continue
-            seen_articles.add(key)
-
         context.append({
-            "article_id": article_id,
-            "title": title,
+            "article_id": metadata.get("article_id", ""),
+            "title": metadata.get("title", ""),
             "authors": metadata.get("authors", ""),
             "url": metadata.get("url", ""),
             "tags": metadata.get("tags", ""),
@@ -166,8 +74,6 @@ class handler(BaseHTTPRequestHandler):
                 }).encode("utf-8"))
                 return
 
-            question_type = detect_question_type_llm(question)
-
             embedding_response = openai_client.embeddings.create(
                 model=EMBED_MODEL,
                 input=question
@@ -181,7 +87,7 @@ class handler(BaseHTTPRequestHandler):
                 include_metadata=True
             )
 
-            context = build_context(results, question_type)
+            context = build_context(results)
 
             context_text = ""
 
@@ -200,15 +106,46 @@ Passage:
 """
 
             user_prompt = f"""
-Use ONLY the context below to answer the question.
+Use ONLY the retrieved context below to answer the user's question.
 
-Question type detected:
-{question_type}
+First determine which of the following question types best matches the user's request, then follow the corresponding instructions.
 
-Important instruction for this question:
-{TYPE_INSTRUCTIONS[question_type]}
+Question Types:
 
-Context:
+1. Precise Fact Retrieval
+- Find ONE specific article that best matches the request.
+- Return the requested fields such as title, author, URL, or date if available.
+- Do not list multiple articles.
+
+2. Multi-Result Topic Listing
+- Return up to 3 DISTINCT article titles relevant to the requested topic.
+- Multiple retrieved chunks may belong to the same article.
+- Treat chunks with the same article title as the same article.
+- Do not return duplicate articles.
+- Return only the titles unless the user explicitly asks for additional information.
+- If fewer than 3 relevant articles are available in the retrieved context, return only the available titles.
+
+3. Key Idea Summary Extraction
+- Identify the most relevant article.
+- Mention the article title.
+- Provide a concise summary of the article's central idea using only the retrieved context.
+- If the question contains examples such as "such as", "for example", or "e.g.", treat them as illustrative examples rather than mandatory keywords.
+- Focus on the main idea of the question and summarize the closest matching article.
+
+4. Recommendation with Evidence-Based Justification
+- Recommend ONE article only.
+- Mention the article title.
+- Explain why it is a good recommendation using evidence from the retrieved context.
+- Do not recommend multiple articles.
+
+General Rules:
+- Use only information contained in the retrieved context.
+- Do not use external knowledge.
+- Do not invent facts, authors, dates, URLs, or article details.
+- If the answer cannot be determined from the retrieved context, respond exactly:
+"I don't know based on the provided Medium articles data."
+
+Retrieved Context:
 {context_text}
 
 Question:
@@ -225,19 +162,20 @@ Question:
 
             final_answer = chat_response.choices[0].message.content.strip()
             final_answer = final_answer.replace("\n\n", "\n")
+
             response_context = []
 
             for item in context:
                 response_context.append({
-               "article_id": item["article_id"],
-                "title": item["title"],
-                "chunk": item["chunk"],
-                "score": item["score"]
+                    "article_id": item["article_id"],
+                    "title": item["title"],
+                    "chunk": item["chunk"],
+                    "score": item["score"]
                 })
 
             response = {
                 "response": final_answer,
-                "context":  response_context,
+                "context": response_context,
                 "Augmented_prompt": {
                     "System": SYSTEM_PROMPT,
                     "User": user_prompt
