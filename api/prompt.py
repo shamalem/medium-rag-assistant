@@ -6,7 +6,7 @@ from openai import OpenAI
 from pinecone import Pinecone
 
 
-TOP_K = 8
+TOP_K = 9
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.llmod.ai")
