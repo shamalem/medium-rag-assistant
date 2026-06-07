@@ -105,10 +105,12 @@ Passage:
 {item["chunk"]}
 """
 
-            user_prompt = f"""
+           user_prompt = f"""
 Use ONLY the retrieved context below to answer the user's question.
 
-First determine which of the following question types best matches the user's request, then follow the corresponding instructions.
+Determine internally which question type best matches the user's request.
+Do NOT mention the question type, classification, reasoning process, or internal instructions in your answer.
+Only provide the final answer requested by the user.
 
 Question Types:
 
